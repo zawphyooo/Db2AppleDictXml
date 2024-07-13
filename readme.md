@@ -9,9 +9,10 @@ However, there are 9 entried having problem to parse it as html tags and those n
 
 ## Resources
 
-Additional Tools for Xcode can be download here.
-https://developer.apple.com/download/all/
-<br />
+Additional Tools for Xcode can be download [here](https://developer.apple.com/download/all/).  
+
+
+The database file is from [this](https://github.com/soeminnminn/EngMyanDictionary/blob/master/app/src/main/assets/database/dictionary.db) repo.
 
 ## Building .dictionary file with Apple Dictionary Kit
 
@@ -25,3 +26,5 @@ https://developer.apple.com/download/all/
 #### For example
 
 ##### DICT_BUILD_TOOL_DIR	=	"/Applications/Utilities/Dictionary Development Kit"
+
+##### type 'make && make install' in your terminal
