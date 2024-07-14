@@ -2,6 +2,7 @@ import sqlite3
 import xml.etree.ElementTree as ET
 from html import unescape
 from html.parser import HTMLParser
+import re
 
 class HTMLCleaner(HTMLParser):
     def __init__(self):
@@ -34,10 +35,37 @@ class HTMLCleaner(HTMLParser):
 
 def clean_html(html_content):
     # Replace <br> with <br />
-    html_content = html_content.replace("<br>", "<br />")
+    html_content = html_content.replace("<br>", "<br />").replace("&", "&amp;")
+    #html_content = html_content.replace("</b>", "<br />")
     cleaner = HTMLCleaner()
     cleaner.feed(html_content)
     return cleaner.cleaned_html
+
+def preprocess_html(html_content):
+    # Unescape HTML content first
+    html_content = unescape(html_content)
+    
+    # Replace <br> with <br /> and sanitize & characters
+    html_content = re.sub(r'<br(?!\s*/)>', '<br />', html_content)
+    html_content = re.sub(r'&(?![a-zA-Z]+;|#[0-9]+;|#x[0-9a-fA-F]+;)', '&amp;', html_content)
+    
+    # Escape standalone < and > characters by splitting on valid tags and replacing only outside of tags
+    parts = re.split(r'(<[^>]+>)', html_content)
+    for i, part in enumerate(parts):
+        if not part.startswith('<') and not part.endswith('>'):
+            part = part.replace('<', '&lt;').replace('>', '&gt;')
+        parts[i] = part
+    
+    html_content = ''.join(parts)
+    
+    return html_content
+
+def log_error_details(definition, error):
+    position = error.position
+    error_char = definition[max(0, position[1]-20):position[1]+20]  # Show 20 characters around the error position for context
+    print(f"Error in entry at _id={_id} around: '{error_char}' (position {position})")
+    print(f"Complete definition: {definition}")
+
 
 # Connect to the SQLite database
 # This data base is from https://github.com/soeminnminn/EngMyanDictionary/blob/master/app/src/main/assets/database/dictionary.db
@@ -46,7 +74,7 @@ conn = sqlite3.connect('dictionary.db')
 cursor = conn.cursor()
 
 # Query to select the specific columns
-cursor.execute("SELECT _id, word, title, definition FROM dictionary")
+cursor.execute("SELECT _id, word, title, definition FROM dictionary where _id=10518")
 rows = cursor.fetchall()
 
 # Create the root element for the XML
@@ -76,11 +104,15 @@ for row in rows:
     content = ET.SubElement(entry, 'div')
     # Wrap the definition content in a single root element and clean it
     try:
-        cleaned_definition = clean_html(unescape(definition))
+        print(f"Original definition: {definition}")
+        preprocessed_definition = preprocess_html(definition)
+        cleaned_definition = clean_html(preprocessed_definition)
         wrapped_definition = f"<root>{cleaned_definition}</root>"
         content.extend(ET.fromstring(wrapped_definition))
     except ET.ParseError as e:
-        print(f"Skipping entry with _id={_id} due to malformed HTML. Error: {e}")
+        log_error_details(definition, e)
+        
+        print(f"Skipping entry with _id={_id} due to malformed HTML.")
         root.remove(entry)
         continue
 
